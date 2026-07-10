@@ -1,0 +1,10 @@
+{
+  "name": "aimforge",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AimForge — free, browser-based FPS aim trainer",
+  "scripts": {
+    "start": "npx -y http-server -p 8080 -c-1 ."
+  },
+  "license": "MIT"
+}

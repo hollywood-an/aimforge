@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-10T00:00:00Z",
+  "title": "Design System: AimForge",
+  "extensions": {
+    "colorMeta": {
+      "abyss": { "role": "neutral", "displayName": "Abyss", "canonical": "#0b0e14", "tonalRamp": ["#05070a", "#0b0e14", "#10151f", "#151c29", "#223047", "#3a4a68", "#8892a6", "#e8eef7"] },
+      "forge-cyan": { "role": "primary", "displayName": "Forge Cyan", "canonical": "#00ffd0", "tonalRamp": ["#00332a", "#006654", "#00997e", "#00cca8", "#00ffd0", "#4dffdd", "#99ffe9", "#e6fffa"] },
+      "ember-danger": { "role": "semantic-danger", "displayName": "Ember Danger", "canonical": "#ff4a6e", "tonalRamp": ["#330f16", "#661e2c", "#992d42", "#cc3b58", "#ff4a6e", "#ff7790", "#ffa5b5", "#ffd2da"] },
+      "medal-gold": { "role": "semantic-reward", "displayName": "Medal Gold", "canonical": "#ffd24a", "tonalRamp": ["#332a0f", "#66541e", "#997e2c", "#cca83b", "#ffd24a", "#ffdd77", "#ffe9a5", "#fff4d2"] },
+      "trace-blue": { "role": "data-history", "displayName": "Trace Blue", "canonical": "#4ab7ff", "tonalRamp": ["#0f2533", "#1e4966", "#2c6e99", "#3b92cc", "#4ab7ff", "#77c9ff", "#a5daff", "#d2edff"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Logo and rank reveal only (The Two Moments Rule)." },
+      "body": { "displayName": "Body", "purpose": "All UI text; condensed technical sans with tabular numerals for data." }
+    },
+    "shadows": [
+      { "name": "modal-float", "value": "0 20px 60px rgba(0, 0, 0, 0.5)", "purpose": "Dialog panels floating above the live 3D arena. The only shadow in the system." }
+    ],
+    "motion": [
+      { "name": "state-fast", "value": "0.1s ease-out", "purpose": "Hover/active state shifts on buttons, tabs, cards." },
+      { "name": "hit-pop", "value": "180ms ease-out", "purpose": "Hitmarker pop via WAAPI; cancels and replays per hit." }
+    ],
+    "breakpoints": [
+      { "name": "graphs-stack", "value": "640px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Accent action: start run, resume, begin benchmark.",
+      "html": "<button class=\"ds-btn-accent\">▶ CLICK TO START</button>",
+      "css": ".ds-btn-accent { font-family: Rajdhani, system-ui, sans-serif; font-weight: 700; letter-spacing: 0.06em; font-size: 19px; color: #00ffd0; background: rgba(0,255,208,0.14); border: 1px solid #00ffd0; border-radius: 10px; padding: 14px 30px; cursor: pointer; transition: background 0.1s, transform 0.05s; } .ds-btn-accent:hover { background: rgba(0,255,208,0.24); } .ds-btn-accent:active { transform: scale(0.98); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Back/exit actions.",
+      "html": "<button class=\"ds-btn-ghost\">← Back</button>",
+      "css": ".ds-btn-ghost { font-family: Rajdhani, system-ui, sans-serif; font-weight: 700; letter-spacing: 0.06em; color: #8892a6; background: transparent; border: 1px solid #223047; border-radius: 10px; padding: 12px 22px; cursor: pointer; transition: border-color 0.1s; } .ds-btn-ghost:hover { border-color: #00ffd0; }"
+    },
+    {
+      "name": "Scenario Card",
+      "kind": "card",
+      "refersTo": "card-scenario",
+      "description": "Menu entry for one training scenario: name, category, description, PB + tier.",
+      "html": "<button class=\"ds-card\"><div class=\"ds-card-top\"><span class=\"ds-card-name\">Gridshot</span><span class=\"ds-chip\">Flicking</span></div><p class=\"ds-card-desc\">Three static orbs at all times. Destroy one, another appears.</p><div class=\"ds-card-bottom\"><span class=\"ds-card-pb\">PB 9,752</span><span class=\"ds-chip ds-chip-gold\">Gold</span></div></button>",
+      "css": ".ds-card { background: #10151f; border: 1px solid #223047; border-radius: 12px; padding: 16px 18px; text-align: left; color: #e8eef7; font-family: Rajdhani, system-ui, sans-serif; cursor: pointer; display: flex; flex-direction: column; gap: 8px; width: 270px; transition: transform 0.1s, border-color 0.1s; } .ds-card:hover { transform: translateY(-3px); border-color: #00ffd0; } .ds-card-top { display: flex; justify-content: space-between; align-items: center; } .ds-card-name { font-size: 20px; font-weight: 700; } .ds-card-desc { color: #8892a6; font-size: 15px; margin: 0; } .ds-card-bottom { display: flex; justify-content: space-between; align-items: center; } .ds-card-pb { color: #ffd24a; font-weight: 600; font-size: 15px; } .ds-chip { border: 1px solid #223047; border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 600; color: #8892a6; } .ds-chip-gold { color: #ffd24a; border-color: #ffd24a; }"
+    },
+    {
+      "name": "Category Tab",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Scenario category filter pills.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab ds-tab-active\">All</button><button class=\"ds-tab\">Flicking</button><button class=\"ds-tab\">Tracking</button></nav>",
+      "css": ".ds-tabs { display: flex; gap: 8px; font-family: Rajdhani, system-ui, sans-serif; } .ds-tab { background: transparent; border: 1px solid #223047; color: #8892a6; font-weight: 600; letter-spacing: 0.06em; padding: 7px 18px; border-radius: 999px; cursor: pointer; transition: color 0.1s, border-color 0.1s; } .ds-tab:hover { color: #e8eef7; border-color: #00ffd0; } .ds-tab-active { color: #061511; background: #00ffd0; border-color: #00ffd0; }"
+    },
+    {
+      "name": "Number Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Settings row control (DPI, sensitivity).",
+      "html": "<input class=\"ds-input\" type=\"number\" value=\"800\" />",
+      "css": ".ds-input { font-family: Rajdhani, system-ui, sans-serif; font-size: 17px; color: #e8eef7; background: #151c29; border: 1px solid #223047; border-radius: 8px; padding: 7px 10px; width: 170px; } .ds-input:focus-visible { outline: none; border-color: #00ffd0; }"
+    },
+    {
+      "name": "Stat Tile",
+      "kind": "custom",
+      "refersTo": "card-scenario",
+      "description": "Results/stats value+label tile.",
+      "html": "<div class=\"ds-stat\"><span class=\"ds-stat-v\">85.9%</span><span class=\"ds-stat-k\">Accuracy</span></div>",
+      "css": ".ds-stat { background: #151c29; border: 1px solid #223047; border-radius: 10px; padding: 10px 16px; display: inline-flex; flex-direction: column; gap: 2px; align-items: center; font-family: Rajdhani, system-ui, sans-serif; } .ds-stat-v { font-size: 22px; font-weight: 700; color: #e8eef7; font-variant-numeric: tabular-nums; } .ds-stat-k { font-size: 13px; color: #8892a6; letter-spacing: 0.04em; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Midnight Range",
+    "overview": "A pro's private practice range after hours: the room is dark, the lights are on the targets, and the only numbers that matter are yours. The interface is a cool, dark shell that stays quiet so the arena, the score, and the rank carry all the energy. Glow is earned light — logo, new PB, rank reveal — never ambience.",
+    "keyCharacteristics": [
+      "Deep cool dark surfaces layered by lightness, not shadow",
+      "One electric accent (Forge Cyan) for action and identity; gold reserved for PBs and medals",
+      "Condensed technical body type with tabular numerals everywhere data appears",
+      "Wide-tracked display type reserved for named moments",
+      "Motion conveys state; celebration is rationed to PBs and rank reveals"
+    ],
+    "rules": [
+      { "name": "The Earned Light Rule", "body": "Glow is permitted only on: the logo, the results score, a new-PB badge, and the benchmark rank reveal. Any other glowing element is a bug.", "section": "colors" },
+      { "name": "The One Border Rule", "body": "All structural borders are 1px Edge (#223047). Thicker or colored borders signal interactive state, never decoration.", "section": "colors" },
+      { "name": "The Two Moments Rule", "body": "Orbitron appears at most twice per screen. If a third element wants it, the hierarchy is wrong.", "section": "typography" },
+      { "name": "The Three Layers Rule", "body": "No surface stacks deeper than Panel Raised. A fourth layer means restructure the grouping.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep full-strength Forge Cyan under 10% of any screen.",
+      "Do use tabular numerals on every number that can change.",
+      "Do route all celebration through the two sanctioned peaks: NEW PB and rank reveal.",
+      "Do keep run-critical surfaces free of transition delays.",
+      "Do give every interactive element visible hover AND focus-visible states."
+    ],
+    "donts": [
+      "Don't ship the generic neon gamer look: RGB gradients, ambient glow, animated backgrounds during runs.",
+      "Don't import free-to-play mobile-game energy: confetti-per-action, AMAZING!!! toasts.",
+      "Don't flatten into a sterile SaaS dashboard: the results screen is a payoff, not a report.",
+      "Don't use gradient text, side-stripe accent borders, or glassmorphism-by-default.",
+      "Don't put Orbitron on body text, buttons, labels, or data.",
+      "Don't use shadows for hover states or stack surfaces past Panel Raised."
+    ]
+  }
+}

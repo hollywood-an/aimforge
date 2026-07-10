@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AimForge — Free Browser Aim Trainer</title>
+  <meta name="description" content="AimForge: a free, no-install FPS aim trainer. Flicking, tracking, target switching, reflex and precision scenarios with real cross-game sensitivity conversion." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='none' stroke='%2300ffd0' stroke-width='8'/><circle cx='50' cy='50' r='12' fill='%2300ffd0'/></svg>" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="game" role="img" aria-label="3D practice arena — enters full-screen when a run starts"></canvas>
+
+  <!-- In-run HUD -->
+  <div id="hud" class="hidden">
+    <div id="crosshair"></div>
+    <div id="hitmarker"></div>
+    <div id="hud-score">0</div>
+    <div id="hud-timer">60</div>
+    <div id="hud-right"><span id="hud-acc">100%</span><span id="hud-streak"></span></div>
+    <div id="hud-fps"></div>
+    <div id="hud-message"></div>
+    <div id="hud-bench"></div>
+  </div>
+
+  <!-- Overlay screens -->
+  <main id="screens">
+    <section id="screen-menu" class="screen">
+      <header class="menu-head">
+        <h1 class="logo" tabindex="-1">AIM<span>FORGE</span></h1>
+        <p class="tagline">Sharpen your aim. Free, in your browser, raw input.</p>
+      </header>
+
+      <div class="menu-actions">
+        <button id="menu-benchmark" class="btn big accent stack">
+          <span class="btn-title"><span class="ico" data-icon="benchmark" data-icon-size="18"></span> BENCHMARK</span>
+          <span class="btn-sub" id="menu-bench-rank">Six stages · one rank</span>
+        </button>
+        <button id="menu-stats" class="btn big"><span class="btn-line"><span class="ico" data-icon="stats" data-icon-size="18"></span> Stats</span></button>
+        <button id="menu-settings" class="btn big"><span class="btn-line"><span class="ico" data-icon="settings" data-icon-size="18"></span> Settings</span></button>
+      </div>
+
+      <div id="menu-firstrun" class="firstrun hidden"></div>
+
+      <div class="menu-bar">
+        <button id="menu-warmup" class="btn ghost sm hidden"></button>
+        <p class="menu-hints">
+          <kbd>R</kbd> restart <span class="sep">·</span> <kbd>Esc</kbd> pause <span class="sep">·</span> Progress saved on this device
+        </p>
+      </div>
+
+      <nav id="menu-tabs" class="tabs" aria-label="Filter scenarios by category"></nav>
+      <div id="menu-cards" class="cards"></div>
+      <div id="menu-fade" class="menu-fade" aria-hidden="true"></div>
+    </section>
+
+    <section id="screen-brief" class="screen hidden">
+      <div class="panel">
+        <h2 id="brief-name">Scenario</h2>
+        <div id="brief-thumb" class="brief-thumb hidden"></div>
+        <p id="brief-desc" class="dim"></p>
+        <div id="brief-meta" class="chips"></div>
+        <div id="brief-custom" class="custom-form hidden"></div>
+        <button id="brief-start" class="btn big accent"><span class="ico" data-icon="play"></span> START <kbd>Enter</kbd></button>
+        <p class="info">Your mouse will be captured. Press Esc anytime to pause.</p>
+        <button id="brief-back" class="btn ghost"><span class="ico" data-icon="back"></span> Back</button>
+      </div>
+    </section>
+
+    <section id="screen-pause" class="screen hidden">
+      <div class="panel narrow">
+        <h2>PAUSED</h2>
+        <button id="pause-resume" class="btn big accent"><span class="ico" data-icon="play"></span> Resume</button>
+        <button id="pause-restart" class="btn"><span class="ico" data-icon="restart"></span> Restart <kbd>R</kbd></button>
+        <button id="pause-settings" class="btn"><span class="ico" data-icon="settings"></span> Settings <kbd>S</kbd></button>
+        <button id="pause-quit" class="btn ghost">Quit to menu <kbd>Q</kbd></button>
+      </div>
+    </section>
+
+    <section id="screen-results" class="screen hidden">
+      <div class="panel wide">
+        <h2 id="res-name">Results</h2>
+        <p id="res-bench-progress" class="bench-progress dim hidden"></p>
+        <div class="res-score-row">
+          <span id="res-score" class="res-score">0</span>
+          <span id="res-pb-badge" class="pb-badge hidden">NEW PB</span>
+          <span id="res-tier"></span>
+        </div>
+        <p id="res-delta" class="dim res-land"></p>
+        <p id="res-next-tier" class="dim res-land hidden"></p>
+        <div id="res-stats" class="stat-grid"></div>
+        <div class="graphs">
+          <div class="graph-box"><h4>Score over time</h4><canvas id="res-graph" role="img" aria-label="Score over time"></canvas></div>
+          <div class="graph-box"><h4>Recent runs</h4><canvas id="res-history" role="img" aria-label="Recent run scores"></canvas></div>
+        </div>
+        <div class="row buttons center">
+          <button id="res-retry" class="btn accent"><span class="ico" data-icon="restart"></span> Retry <kbd>R</kbd></button>
+          <button id="res-next" class="btn accent hidden">Next <span class="ico" data-icon="next"></span> <kbd>Enter</kbd></button>
+          <button id="res-menu" class="btn ghost">Menu</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-settings" class="screen hidden">
+      <div class="panel wide scroll">
+        <h2>Settings</h2>
+        <p class="info settings-lead">Changes apply instantly and are saved on this device.</p>
+        <div id="settings-body"></div>
+        <button id="settings-back" class="btn ghost"><span class="ico" data-icon="back"></span> Back</button>
+      </div>
+    </section>
+
+    <section id="screen-stats" class="screen hidden">
+      <div class="panel wide scroll">
+        <h2>Your Stats</h2>
+        <div id="stats-totals" class="stat-grid"></div>
+        <table class="stats-table" id="stats-table-wrap">
+          <thead><tr>
+            <th scope="col">Scenario</th><th scope="col">PB</th>
+            <th scope="col">Avg (last 5)</th><th scope="col">Runs</th><th scope="col">Trend</th>
+          </tr></thead>
+          <tbody id="stats-table"></tbody>
+        </table>
+        <div id="stats-empty" class="empty-state hidden">
+          <p class="dim">No runs yet. Play a scenario and your history appears here.</p>
+          <button id="stats-empty-play" class="btn accent"><span class="ico" data-icon="play"></span> Play Gridshot</button>
+        </div>
+        <button id="stats-back" class="btn ghost"><span class="ico" data-icon="back"></span> Back</button>
+      </div>
+    </section>
+
+    <section id="screen-bench" class="screen hidden">
+      <div class="panel">
+        <div id="bench-intro">
+          <h2><span class="ico" data-icon="benchmark" data-icon-size="22"></span> BENCHMARK</h2>
+          <p class="bench-explain">Six scenarios back-to-back. One overall rank. No retries.</p>
+          <p class="bench-scoring dim">Rank = average stage tier · Bronze 1 → Grandmaster 7</p>
+          <p id="bench-best" class="dim"></p>
+          <ol id="bench-stages" class="bench-list"></ol>
+          <div class="row buttons center">
+            <button id="bench-start" class="btn big accent"><span class="ico" data-icon="play"></span> Begin gauntlet</button>
+            <button id="bench-back" class="btn ghost"><span class="ico" data-icon="back"></span> Back</button>
+          </div>
+        </div>
+        <div id="bench-summary" class="hidden">
+          <h2>Your rank</h2>
+          <div id="bench-rank" class="bench-rank">—</div>
+          <p id="bench-points" class="dim"></p>
+          <table class="stats-table bench-summary-table">
+            <thead><tr>
+              <th scope="col">Scenario</th><th scope="col">Score</th><th scope="col">Tier</th>
+            </tr></thead>
+            <tbody id="bench-table"></tbody>
+          </table>
+          <div class="row buttons center">
+            <button id="bench-done" class="btn big accent">Done</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
