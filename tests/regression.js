@@ -160,11 +160,51 @@ out.seedRuns = {
   ok: la === lb && la !== lc && savedSeed === 777,
 };
 
+// 9. Challenge links: ?c=<id>.<seed36>.<score> boots into the briefing with
+//    the seed armed and a chip; the run records seed/beatScore at timeScale 1
+//    and renders the outcome line. ("16" base36 = seed 42.)
+await page.goto(BASE_URL + '?c=gridshot.16.5000', { waitUntil: 'load', timeout: 60000 });
+await page.waitForFunction(() => window.AF && window.AF.game && window.AF.ui, { timeout: 60000 });
+await sleep(300);
+out.challengeBoot = await page.evaluate(() => ({
+  armed: JSON.stringify(AF.ui._challenge),
+  briefVisible: !document.getElementById('screen-brief').classList.contains('hidden'),
+  chip: !!document.querySelector('#brief-meta .chip.challenge'),
+}));
+out.challengeBoot.ok = out.challengeBoot.armed === JSON.stringify({ id: 'gridshot', seed: 42, beatScore: 5000 })
+  && out.challengeBoot.briefVisible && out.challengeBoot.chip;
+// Run it with the opts _startBrief would arm (pointer lock is unavailable headless).
+await page.evaluate(() => AF.game._beginRun(AF.byId['gridshot'], {
+  seed: AF.ui._challenge.seed,
+  beatScore: AF.ui._challenge.beatScore,
+  durationOverride: AF.byId['gridshot'].duration,
+}));
+await page.waitForFunction(() => AF.game.state === 'running', { timeout: 20000 });
+await page.evaluate(() => { AF.game.elapsed = AF.game.runDuration + 0.2; });
+await page.waitForSelector('#screen-results:not(.hidden)', { timeout: 8000 });
+out.challengeRun = await page.evaluate(() => {
+  const runs = JSON.parse(localStorage.getItem('af_runs_v1') || '{}').gridshot || [];
+  const last = runs[runs.length - 1] || {};
+  const oc = document.getElementById('res-challenge-outcome');
+  return {
+    seed: last.seed, beatScore: last.beatScore, timeScale: last.timeScale,
+    outcomeVisible: !oc.classList.contains('hidden'),
+    outcomeText: oc.textContent,
+    shareHiddenAtZeroScore: document.getElementById('res-challenge').classList.contains('hidden'),
+  };
+});
+out.challengeRun.ok = out.challengeRun.seed === 42 && out.challengeRun.beatScore === 5000
+  && out.challengeRun.timeScale === 1 && out.challengeRun.outcomeVisible
+  && out.challengeRun.outcomeText.includes('needed') && out.challengeRun.shareHiddenAtZeroScore;
+await page.evaluate(() => AF.game.quitToMenu());
+await sleep(200);
+
 out.pageErrors = pageErrors;
 console.log(JSON.stringify(out, null, 2));
 const ok = out.benchRetryBlocked && out.rpmCap.ok && out.pbNorm.ok && out.pendingCleared
   && out.customClamp.ok && out.benchDoneState && out.sensClamp.ok
-  && out.seedPrimitives.ok && out.seedRuns.ok && pageErrors.length === 0;
+  && out.seedPrimitives.ok && out.seedRuns.ok
+  && out.challengeBoot.ok && out.challengeRun.ok && pageErrors.length === 0;
 if (!ok) await failShot(page, 'regression');
 await browser.close();
 process.exit(ok ? 0 : 1);

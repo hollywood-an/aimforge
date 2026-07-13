@@ -8,6 +8,7 @@ import { Game } from './game.js';
 import { UI } from './ui.js';
 import { settings } from './settings.js';
 import { PointerCalibrator } from './calibrate.js';
+import { seedFromString } from './rng.js';
 import { SCENARIOS, byId } from './scenarios/index.js';
 
 const canvas = document.getElementById('game');
@@ -56,3 +57,18 @@ requestAnimationFrame(frame);
 
 // Debug/testing handle (used by automated smoke tests; harmless in production).
 window.AF = { engine, input, hud, targets, game, ui, settings, calibrator, SCENARIOS, byId };
+
+// Challenge links: ?c=<scenarioId>.<seed36>.<score> lands on the briefing
+// screen with the seed armed (the run itself needs a user gesture for pointer
+// lock). Any invalid part means a plain visit — no error states.
+(function handleChallengeLink() {
+  const raw = new URLSearchParams(location.search).get('c');
+  if (!raw) return;
+  const [id, s36, scoreStr] = raw.split('.');
+  const def = byId[id];
+  const seed = seedFromString(s36 ?? '');
+  const score = /^\d{1,9}$/.test(scoreStr ?? '') ? parseInt(scoreStr, 10) : null;
+  if (!def || def.id === 'custom' || seed === null || score === null) return;
+  ui._challenge = { id, seed, beatScore: score };
+  ui.showBrief(def);
+})();

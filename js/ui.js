@@ -8,6 +8,7 @@ import { SCENARIOS, CATEGORIES, byId } from './scenarios/index.js';
 import { CUSTOM_DEFAULTS } from './scenarios/custom.js';
 import { BENCH_STAGES, RANKS, tierFor, tierIndex, computeBench } from './benchmark.js';
 import { getPB, getRuns, totals, saveBench, getBestBench, clearAllData, normScore } from './stats.js';
+import { seedToString } from './rng.js';
 
 const CUSTOM_KEY = 'af_custom_v1';
 const LAST_KEY = 'af_last_v1'; // non-frozen: remembers last-played scenario for warm-up
@@ -388,6 +389,7 @@ export class UI {
 
   showMenu() {
     this._bench = null;
+    this._challenge = null; // backing out of a challenge link dismisses it
     this._disarmAbandon();
     this.hud.setBenchLabel('');
     this._refreshCards();
@@ -419,14 +421,18 @@ export class UI {
     const pb = getPB(def.id);
     const cfg = isCustom ? this._customCfg() : null;
     const wm = isCustom ? this._cfWeaponInput?.value || cfg.weapon : def.weapon?.mode || 'semi';
+    // Challenge runs are pinned to base duration (fair comparison), so the
+    // chip shows the real length regardless of the local time-scale setting.
+    const isChallenge = this._challenge?.id === def.id;
     const dur = isCustom
       ? Math.round(Number(this._cfDurationInput?.value ?? cfg.duration))
-      : Math.round(def.duration * (settings.data.timeScale || 1));
+      : Math.round(def.duration * (isChallenge ? 1 : settings.data.timeScale || 1));
     el('brief-meta').innerHTML = `
       <span class="chip dim" id="brief-dur-chip">${dur}s</span>
       <span class="chip dim">${WEAPON_LABEL[wm] || wm}</span>
       ${pb ? `<span class="chip dim">PB ${fmt(normScore(pb))}</span>` : ''}
-      ${pb ? tierChip(def, pb.score, pb.timeScale ?? 1) : ''}`;
+      ${pb ? tierChip(def, pb.score, pb.timeScale ?? 1) : ''}
+      ${isChallenge ? `<span class="chip challenge">Challenge — beat ${fmt(this._challenge.beatScore)}</span>` : ''}`;
 
     this._show('screen-brief');
   }
@@ -580,6 +586,13 @@ export class UI {
         durationOverride: cfg.duration,
       };
     }
+    if (this._challenge?.id === def.id) {
+      // Replay the exact seed at base duration so timeScale settings can't
+      // make the score comparison unfair.
+      opts.seed = this._challenge.seed;
+      opts.beatScore = this._challenge.beatScore;
+      opts.durationOverride = def.duration;
+    }
     this.game.arm(def, opts);
   }
 
@@ -686,6 +699,26 @@ export class UI {
       ntEl.classList.add('hidden');
     }
 
+    // Challenge outcome + share button.
+    this._lastResult = result;
+    const oc = el('res-challenge-outcome');
+    if (result.beatScore > 0) {
+      const won = result.score > result.beatScore;
+      oc.textContent = won
+        ? `Challenge beaten — ${fmt(result.score)} vs ${fmt(result.beatScore)}`
+        : `Challenge missed — needed ${fmt(result.beatScore + 1)}`;
+      oc.classList.toggle('win', won);
+      oc.classList.remove('hidden');
+    } else {
+      oc.classList.add('hidden');
+    }
+    // Shareable only for a fair (timeScale 1), scored, stock-scenario solo run.
+    el('res-challenge').classList.toggle(
+      'hidden',
+      !!this._bench || result.scenarioId === 'custom' || result.seed == null
+        || result.timeScale !== 1 || result.score <= 0
+    );
+
     const rows = [];
     rows.push(['Accuracy', `${result.acc}%`]);
     rows.push(['Kills', fmt(result.kills)]);
@@ -731,6 +764,28 @@ export class UI {
     this._show('screen-results');
     // Tier / delta / next-tier land AFTER the score number settles.
     this._landIn([el('res-tier'), el('res-delta'), el('res-next-tier')]);
+  }
+
+  _copyChallenge() {
+    const r = this._lastResult;
+    if (!r || r.seed == null) return;
+    const url = `${location.origin}${location.pathname}?c=${r.scenarioId}.${seedToString(r.seed)}.${Math.round(r.score)}`;
+    const done = () => this._toast('Challenge link copied — same targets, beat your score');
+    navigator.clipboard?.writeText(url).then(done).catch(() => {
+      // Non-secure contexts (plain http) have no clipboard API.
+      const ta = mk('textarea');
+      ta.value = url;
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        done();
+      } catch {
+        this._toast('Copy failed — link: ' + url, 5000);
+      }
+      ta.remove();
+    });
   }
 
   /** Ease-out-expo count-up to the final score. Final value is the resting default. */
@@ -1178,6 +1233,7 @@ export class UI {
 
     click('res-retry', () => this.game.restart());
     click('res-next', () => this._benchAdvance());
+    click('res-challenge', () => this._copyChallenge());
     click('res-menu', () => this.requestQuit());
 
     click('settings-back', () => this._settingsBack());

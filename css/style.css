@@ -750,6 +750,18 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 
+/* Challenge chip: accent tint, same One Border treatment as tier chips. */
+.chip.challenge {
+  border-color: transparent;
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+#res-challenge-outcome.win {
+  color: var(--accent);
+}
+
 /* ---------- Results ---------- */
 
 .bench-progress {
