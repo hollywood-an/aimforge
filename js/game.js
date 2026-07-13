@@ -6,6 +6,7 @@ import { ARENA } from './engine.js';
 import { settings } from './settings.js';
 import { audio } from './audio.js';
 import { saveRun, getPB, normScore } from './stats.js';
+import { mulberry32, deriveSeed, randomSeed } from './rng.js';
 
 export const State = {
   MENU: 'menu',
@@ -79,6 +80,16 @@ export class Game {
   _beginRun(def, opts) {
     this.currentDef = def;
     this.currentOpts = opts;
+
+    // Deterministic randomness: challenge runs pass opts.seed, normal runs draw
+    // a fresh one (recorded on the result so any run can become a challenge).
+    // The api helpers consume the run stream in ordinal spawn/event order; each
+    // target's mover gets its own lane derived at spawn time (nextRng), so two
+    // players on the same seed can't desync it through kill timing.
+    this.seed = Number.isFinite(opts.seed) ? opts.seed >>> 0 : randomSeed();
+    this._rand = mulberry32(this.seed);
+    this._spawnCount = 0;
+    this.targets.nextRng = () => mulberry32(deriveSeed(this.seed, this._spawnCount++));
 
     // Per-run state.
     this.score = 0;
@@ -225,6 +236,8 @@ export class Game {
       date: new Date().toISOString(),
       cm360: Math.round(settings.cm360() * 10) / 10,
       fov: settings.data.fov,
+      seed: this.seed,
+      beatScore: Number.isFinite(this.currentOpts.beatScore) ? this.currentOpts.beatScore : undefined,
     };
 
     const prevPB = getPB(result.scenarioId);
@@ -478,6 +491,9 @@ export class Game {
 
   _buildApi() {
     const game = this;
+    // All gameplay randomness flows through the run's seeded stream.
+    const rnd = () => (game._rand ? game._rand() : Math.random());
+    const rand = (a, b) => a + rnd() * (b - a);
     const arena = {
       wallZ: ARENA.wallZ,
       xMax: ARENA.xMax,
@@ -530,16 +546,12 @@ export class Game {
       },
       rand,
       randInt: (a, b) => Math.floor(rand(a, b + 1)),
-      pick: (arr) => arr[Math.floor(Math.random() * arr.length)],
-      chance: (p) => Math.random() < p,
+      pick: (arr) => arr[Math.floor(rnd() * arr.length)],
+      chance: (p) => rnd() < p,
       addScore: (n) => game._addScore(n),
       setStat: (label, value) => game.customStats.set(label, value),
       hudMessage: (text, ms = 900) => game.hud.message(text, ms),
       aimDir: () => game.engine.camera.getWorldDirection(new THREE.Vector3()),
     };
   }
-}
-
-function rand(a, b) {
-  return a + Math.random() * (b - a);
 }

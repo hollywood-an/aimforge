@@ -52,6 +52,10 @@ export class Target {
     }
     mgr.scene.add(this.mesh);
 
+    // Per-target RNG lane, derived from the run seed at spawn time (game.js
+    // assigns nextRng each run). Fallback covers spawns outside a run.
+    this.rng = mgr.nextRng ? mgr.nextRng() : Math.random;
+
     this._initMover(opts.move);
     // Movers may reposition at spawn (lissajous phase offset) — sync before first render.
     this.mesh.position.copy(this.pos);
@@ -64,9 +68,9 @@ export class Target {
       this._st = {
         axis: move.axis === 'y' ? 'y' : 'x',
         vel: 0,
-        dir: Math.random() < 0.5 ? -1 : 1,
-        speed: rand(move.speedMin ?? 4, move.speedMax ?? 8),
-        timer: rand(move.switchMin ?? 0.25, move.switchMax ?? 0.9),
+        dir: this.rng() < 0.5 ? -1 : 1,
+        speed: randIn(this.rng, move.speedMin ?? 4, move.speedMax ?? 8),
+        timer: randIn(this.rng, move.switchMin ?? 0.25, move.switchMax ?? 0.9),
         baseY: this.pos.y,
         vy: 0,
         jumping: false,
@@ -75,9 +79,9 @@ export class Target {
       const c = move.center || this.pos;
       this._lj = {
         cx: c.x ?? 0, cy: c.y ?? 0, cz: c.z ?? 0,
-        px: Math.random() * Math.PI * 2,
-        py: Math.random() * Math.PI * 2,
-        pz: Math.random() * Math.PI * 2,
+        px: this.rng() * Math.PI * 2,
+        py: this.rng() * Math.PI * 2,
+        pz: this.rng() * Math.PI * 2,
       };
       this._lissajous(move); // start on-path, not at the center
     } else if (move.type === 'bounce') {
@@ -113,10 +117,10 @@ export class Target {
     const s = this._st;
     s.timer -= dt;
     if (s.timer <= 0) {
-      s.timer = rand(m.switchMin ?? 0.25, m.switchMax ?? 0.9);
-      s.speed = rand(m.speedMin ?? 4, m.speedMax ?? 8);
-      s.dir = Math.random() < 0.72 ? -s.dir : s.dir;
-      if (m.jump && s.axis === 'x' && !s.jumping && Math.random() < (m.jump.chance ?? 0.2)) {
+      s.timer = randIn(this.rng, m.switchMin ?? 0.25, m.switchMax ?? 0.9);
+      s.speed = randIn(this.rng, m.speedMin ?? 4, m.speedMax ?? 8);
+      s.dir = this.rng() < 0.72 ? -s.dir : s.dir;
+      if (m.jump && s.axis === 'x' && !s.jumping && this.rng() < (m.jump.chance ?? 0.2)) {
         s.jumping = true;
         s.vy = m.jump.vy ?? 5;
       }
@@ -202,8 +206,8 @@ export class Target {
   }
 }
 
-function rand(a, b) {
-  return a + Math.random() * (b - a);
+function randIn(rng, a, b) {
+  return a + rng() * (b - a);
 }
 
 // --- Pooled particle bursts ------------------------------------------------
@@ -287,6 +291,7 @@ export class TargetManager {
     this.particles = new Particles(scene);
     this.onKill = null; // (target, scored) — assigned by the game
     this.api = null; //   assigned by the game each run (passed to onExpire)
+    this.nextRng = null; // () => rng for the next spawn — assigned by the game each run
     this._tmp = new THREE.Vector3();
     this._seg = new THREE.Vector3();
   }

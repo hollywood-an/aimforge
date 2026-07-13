@@ -32,8 +32,10 @@ for (const id of await page.evaluate(() => AF.SCENARIOS.map((s) => s.id))) {
       : {};
     const before = await page.evaluate((sid) => JSON.parse(localStorage.getItem('af_runs_v1') || '{}')[sid]?.length || 0, id);
     await page.evaluate((sid, o) => AF.game._beginRun(AF.byId[sid], o), id, opts);
-    await sleep(3200); // countdown 2.4s + margin
-    r.started = await page.evaluate(() => AF.game.state === 'running');
+    // Wait for the countdown to hand over (fixed sleeps break on slow CI
+    // runners: dt is clamped to 0.05 so game time lags wall time at low fps).
+    await page.waitForFunction(() => AF.game.state === 'running', { timeout: 20000 });
+    r.started = true;
     const beam = await page.evaluate(() => AF.game.weapon.mode === 'beam');
     if (beam) {
       // Hold beam on a target for ~1.2s (re-aim every 100ms).
