@@ -4,7 +4,18 @@
   "type": "module",
   "description": "AimForge — free, browser-based FPS aim trainer",
   "scripts": {
-    "start": "npx -y http-server -p 8080 -c-1 ."
+    "start": "npx -y http-server -p 8080 -c-1 .",
+    "serve:test": "http-server -p 8317 -c-1 .",
+    "check": "node tests/check.mjs",
+    "test:smoke": "node tests/smoke.js",
+    "test:regression": "node tests/regression.js",
+    "test": "npm run test:smoke && npm run test:regression",
+    "shots": "node tests/shots.js",
+    "thumbs": "node tests/thumbs.js"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "puppeteer-core": "^25.3.0"
   },
   "license": "MIT"
 }
