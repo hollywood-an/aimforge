@@ -27,11 +27,14 @@ out.benchRetryBlocked = await page.evaluate(
 await page.evaluate(() => { AF.ui._bench = null; AF.game.quitToMenu(); });
 await sleep(200);
 
-// 2. RPM cap: 30 spam clicks in ~0.3s on an auto weapon => ~3 shots (600rpm), never >6.
+// 2. RPM cap: spam clicks can't exceed the 600rpm envelope for the game time
+//    that actually elapsed (the spam window stretches on slow CI runners, so
+//    the bound is measured, not assumed).
 await page.evaluate(() => AF.game._beginRun(AF.byId['speed-switch'], {}));
 await page.waitForFunction(() => AF.game.state === 'running', { timeout: 20000 });
-const shots = await page.evaluate(async () => {
+const rpmRes = await page.evaluate(async () => {
   const s0 = AF.game.shots;
+  const e0 = AF.game.elapsed;
   AF.engine.camera.lookAt(AF.targets.alive[0]?.pos || AF.engine.camera.position);
   await new Promise((res) => {
     let n = 0;
@@ -40,9 +43,10 @@ const shots = await page.evaluate(async () => {
       if (++n >= 30) { clearInterval(iv); res(); }
     }, 10);
   });
-  return AF.game.shots - s0;
+  return { shots: AF.game.shots - s0, span: AF.game.elapsed - e0 };
 });
-out.rpmCap = { shots, ok: shots <= 6 };
+// 600 rpm = 10 shots per game-second; +2 margin for window-boundary shots.
+out.rpmCap = { ...rpmRes, cap: Math.ceil(rpmRes.span * 10) + 2, ok: rpmRes.shots <= Math.ceil(rpmRes.span * 10) + 2 };
 await page.evaluate(() => AF.game.quitToMenu());
 await sleep(200);
 
