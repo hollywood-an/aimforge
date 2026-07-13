@@ -1,0 +1,14 @@
+.github
+.impeccable
+.claude
+.cursor
+docs
+tests
+node_modules
+package.json
+package-lock.json
+README.md
+DESIGN.md
+PRODUCT.md
+SCENARIO_API.md
+.gitignore
