@@ -61,6 +61,16 @@ window.AF = { engine, input, hud, targets, game, ui, settings, calibrator, SCENA
 // Challenge links: ?c=<scenarioId>.<seed36>.<score> lands on the briefing
 // screen with the seed armed (the run itself needs a user gesture for pointer
 // lock). Any invalid part means a plain visit — no error states.
+// Installable PWA / offline play. Skipped on localhost so dev servers and the
+// headless test suites stay cache-free and deterministic.
+if ('serviceWorker' in navigator && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      /* http or blocked — the game runs fine without offline support */
+    });
+  });
+}
+
 (function handleChallengeLink() {
   const raw = new URLSearchParams(location.search).get('c');
   if (!raw) return;
