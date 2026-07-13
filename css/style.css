@@ -1242,6 +1242,81 @@ kbd {
   opacity: 1;
 }
 
+/* ---------- Sensitivity demo ---------- */
+
+/* Demo mode: run readouts off, crosshair + hitmarker stay. */
+#hud.demo #hud-score,
+#hud.demo #hud-timer,
+#hud.demo #hud-right,
+#hud.demo #hud-bench {
+  display: none;
+}
+
+#demo-hud {
+  position: absolute;
+  left: 50%;
+  bottom: 12vh;
+  transform: translateX(-50%);
+  width: min(360px, 80vw);
+  text-align: center;
+}
+
+.demo-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim-strong);
+  text-shadow: var(--scrim);
+  margin-bottom: 8px;
+}
+
+#demo-track {
+  height: 8px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: rgba(16, 21, 31, 0.7);
+  overflow: hidden;
+}
+
+#demo-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.08s linear;
+}
+
+.demo-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--dim);
+  text-shadow: var(--scrim);
+  margin-top: 4px;
+}
+
+#demo-cm {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-shadow: var(--scrim);
+  margin-top: 8px;
+}
+
+.demo-hint {
+  font-size: 14px;
+  color: var(--dim-strong);
+  text-shadow: var(--scrim);
+  margin-top: 6px;
+}
+
+/* Confirm step: big number, deliberately unlit (Earned Light). */
+.sensdemo-value {
+  font-size: 44px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin: 8px 0 2px;
+}
+
 /* Scrollbars (WebKit) */
 ::-webkit-scrollbar {
   width: 10px;

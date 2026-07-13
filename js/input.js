@@ -15,6 +15,7 @@ export class Input {
     this.onKey = null; // (code, event) while NOT typing in an input
     this.onLockChange = null; // (locked)
     this.onLockDenied = null; // browser refused the lock (e.g. post-Esc cooldown)
+    this.onWheel = null; // (deltaY px) while locked — sensitivity-demo adjust
 
     document.addEventListener('pointerlockerror', () => this.onLockDenied?.());
 
@@ -41,6 +42,16 @@ export class Input {
       this.fireHeld = false;
       this.onFireUp?.();
     });
+
+    document.addEventListener(
+      'wheel',
+      (e) => {
+        if (!this.locked) return;
+        // Normalize line-mode deltas (Firefox) to px so notch math is uniform.
+        this.onWheel?.(e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY);
+      },
+      { passive: true }
+    );
 
     document.addEventListener('keydown', (e) => {
       const tag = document.activeElement?.tagName;

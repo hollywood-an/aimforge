@@ -27,6 +27,13 @@
     <div id="hud-fps"></div>
     <div id="hud-message"></div>
     <div id="hud-bench"></div>
+    <div id="demo-hud" class="hidden">
+      <div class="demo-label">Sensitivity</div>
+      <div id="demo-track"><div id="demo-fill"></div></div>
+      <div class="demo-ends"><span>slower</span><span>faster</span></div>
+      <div id="demo-cm">30 cm/360</div>
+      <div class="demo-hint">scroll to adjust · <kbd>Enter</kbd> keep · <kbd>Esc</kbd> back</div>
+    </div>
   </div>
 
   <!-- Overlay screens -->
@@ -163,6 +170,26 @@
           <div class="row buttons center">
             <button id="bench-done" class="btn big accent">Done</button>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-sensdemo" class="screen hidden">
+      <div class="panel narrow">
+        <div id="sensdemo-intro">
+          <h2>FIND YOUR SENSITIVITY</h2>
+          <p class="dim">Flick between the orbs and shoot. Scroll to change speed until fast flicks land without overshooting.</p>
+          <p class="info">Your mouse will be captured. Scroll = adjust · <kbd>Enter</kbd> = keep · <kbd>Esc</kbd> = back.</p>
+          <button id="sensdemo-try" class="btn big accent"><span class="ico" data-icon="play"></span> Try it</button>
+          <button id="sensdemo-skip" class="btn ghost">Skip for now</button>
+        </div>
+        <div id="sensdemo-confirm" class="hidden">
+          <h2>KEEP THIS SENSITIVITY?</h2>
+          <div class="sensdemo-value"><span id="sensdemo-cm">30</span> cm/360</div>
+          <p class="dim">How far your mouse travels for a full 360° turn.</p>
+          <button id="sensdemo-save" class="btn big accent">Keep it</button>
+          <button id="sensdemo-retry" class="btn"><span class="ico" data-icon="restart"></span> Try again</button>
+          <button id="sensdemo-cancel" class="btn ghost">Discard</button>
         </div>
       </div>
     </section>

@@ -29,6 +29,7 @@ export const DEFAULTS = {
   sens: 0.4,
   cm360: 32,
   matchDps: 0, // measured desktop cursor speed (px/s); 0 = not measured yet → reference default
+  sensTuned: false, // true once the first-run sensitivity demo was completed or skipped
   fov: 103, // horizontal FOV in degrees, converted per aspect
   invertY: false,
   crosshair: {
@@ -68,6 +69,10 @@ class Settings {
       /* corrupt store -> defaults */
     }
     this.data = merge(DEFAULTS, stored);
+    // True only on a device that has never stored settings — gates the
+    // first-run sensitivity demo (the beforeunload flush makes this a
+    // once-per-device latch).
+    this.freshInstall = stored === null;
     // One-time migration: installs from before "match my mouse" existed (no matchDps key)
     // that still carry the old fixed default sensitivity (Valorant 0.4 ≈ 40.8 cm/360, which
     // reads as sluggish) are switched to the new auto-match default. Anyone who actually

@@ -232,12 +232,100 @@ out.backup = await page.evaluate(async () => {
   return { roundTrip, rejects, untouched, counts, ok: roundTrip && rejects.every(Boolean) && untouched && counts.runs === 1 };
 });
 
+// 11. Sensitivity demo: headless begin (no pointer lock — simulated, same
+//     convention as _beginRun), wheel adjust + clamps, commit persists
+//     mode+flag, cancel restores, fresh boot gates, challenge wins.
+//     MUST STAY LAST: it navigates and clears storage.
+out.sensDemo = await page.evaluate(() => {
+  const S = AF.settings;
+  S.data.sensMode = 'match'; S.data.cm360 = 32; S.data.sensTuned = false;
+  S.data.dpi = 800; S.data.matchDps = 0;
+  AF.ui.showSensDemo('menu');
+  const introVisible = !document.getElementById('sensdemo-intro').classList.contains('hidden');
+  AF.game.startSensDemo();
+  AF.game._onLockChange(true); // lock is unavailable headless — simulate it landing
+  const started = AF.game.state === 'demo' && S.data.sensMode === 'cm360';
+  const seeded = S.data.cm360 === 30; // matchDps 0 → reference → exactly 30 cm
+  const orbs = AF.targets.alive.length === 3;
+  AF.engine.camera.lookAt(AF.targets.alive[0].pos);
+  const n0 = AF.targets.alive.length;
+  AF.game._demoShoot();
+  const killedNoScore = AF.targets.alive.length === n0 - 1 && AF.game.score === 0;
+  AF.game.input.locked = true; // _onWheel gates on locked
+  AF.game._onWheel(200);  const plus2 = S.data.cm360 === 32;    // 2 notches slower
+  AF.game._onWheel(-1e5); const clampLo = S.data.cm360 === 10;  // fast-end clamp
+  AF.game._onWheel(1e5);  const clampHi = S.data.cm360 === 60;  // slow-end clamp
+  AF.game.input.locked = false;
+  AF.game._onLockChange(false); // Esc-equivalent → confirm step
+  const confirm = AF.game.state === 'demo'
+    && !document.getElementById('sensdemo-confirm').classList.contains('hidden');
+  AF.game.cancelSensDemo();
+  const restored = S.data.sensMode === 'match' && S.data.cm360 === 32
+    && AF.game.state === 'menu'
+    && !document.getElementById('screen-menu').classList.contains('hidden');
+  return { introVisible, started, seeded, orbs, killedNoScore, plus2, clampLo, clampHi, confirm, restored,
+    ok: introVisible && started && seeded && orbs && killedNoScore && plus2 && clampLo && clampHi && confirm && restored };
+});
+
+out.sensDemoCommit = await page.evaluate(() => {
+  const S = AF.settings;
+  S.data.sensMode = 'match'; S.data.cm360 = 32; S.data.sensTuned = false; S.data.matchDps = 0;
+  AF.ui.showSensDemo('menu');
+  AF.game.startSensDemo();
+  AF.game._onLockChange(true);
+  AF.game.input.locked = true;
+  AF.game._onWheel(400); // 30 → 34
+  AF.game.input.locked = false;
+  AF.game.commitSensDemo();
+  S.flush(); // commit uses the debounced save()
+  const stored = JSON.parse(localStorage.getItem('af_settings_v1'));
+  return { ok: S.data.sensMode === 'cm360' && S.data.cm360 === 34 && S.data.sensTuned === true
+    && stored.sensMode === 'cm360' && stored.cm360 === 34 && stored.sensTuned === true
+    && AF.game.state === 'menu' };
+});
+
+// Demo must not leak into normal runs.
+await page.evaluate(() => AF.game._beginRun(AF.byId['gridshot'], {}));
+await page.waitForFunction(() => AF.game.state === 'running', { timeout: 20000 });
+out.sensDemoNoLeak = await page.evaluate(() => {
+  const ok = AF.game.state === 'running'
+    && !document.getElementById('hud').classList.contains('demo')
+    && document.getElementById('demo-hud').classList.contains('hidden');
+  AF.game.quitToMenu();
+  return ok;
+});
+
+// Boot gating. stopPersist BEFORE clearing: the beforeunload flush would
+// otherwise re-write af_settings_v1 and defeat the fresh-install latch.
+await page.evaluate(() => { AF.settings.stopPersist(); localStorage.clear(); });
+await page.goto(BASE_URL + '?c=gridshot.16.5000', { waitUntil: 'load', timeout: 60000 });
+await page.waitForFunction(() => window.AF && window.AF.game && window.AF.ui, { timeout: 60000 });
+await sleep(300);
+out.sensDemoChallengeWins = await page.evaluate(() => ({
+  ok: !document.getElementById('screen-brief').classList.contains('hidden')
+    && document.getElementById('screen-sensdemo').classList.contains('hidden'),
+}));
+await page.evaluate(() => { AF.settings.stopPersist(); localStorage.clear(); });
+await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });
+await page.waitForFunction(() => window.AF && window.AF.game && window.AF.ui, { timeout: 60000 });
+await sleep(300);
+out.sensDemoBoot = await page.evaluate(() => {
+  const demoVisible = !document.getElementById('screen-sensdemo').classList.contains('hidden');
+  const intro = !document.getElementById('sensdemo-intro').classList.contains('hidden');
+  document.getElementById('sensdemo-skip').click();
+  return { ok: demoVisible && intro
+    && !document.getElementById('screen-menu').classList.contains('hidden')
+    && AF.settings.data.sensTuned === true };
+});
+
 out.pageErrors = pageErrors;
 console.log(JSON.stringify(out, null, 2));
 const ok = out.benchRetryBlocked && out.rpmCap.ok && out.pbNorm.ok && out.pendingCleared
   && out.customClamp.ok && out.benchDoneState && out.sensClamp.ok
   && out.seedPrimitives.ok && out.seedRuns.ok
-  && out.challengeBoot.ok && out.challengeRun.ok && out.backup.ok && pageErrors.length === 0;
+  && out.challengeBoot.ok && out.challengeRun.ok && out.backup.ok
+  && out.sensDemo.ok && out.sensDemoCommit.ok && out.sensDemoNoLeak
+  && out.sensDemoChallengeWins.ok && out.sensDemoBoot.ok && pageErrors.length === 0;
 if (!ok) await failShot(page, 'regression');
 await browser.close();
 process.exit(ok ? 0 : 1);

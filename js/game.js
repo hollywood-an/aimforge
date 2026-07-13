@@ -14,7 +14,12 @@ export const State = {
   RUNNING: 'running',
   PAUSED: 'paused',
   RESULTS: 'results',
+  DEMO: 'demo', // first-run sensitivity tryout: aim + shoot, no run bookkeeping
 };
+
+// Sensitivity demo tuning: cm/360 range the wheel walks, orb count/size, and
+// how many wheel-pixels equal one notch (one whole cm step).
+const SENS_DEMO = { cmMin: 10, cmMax: 60, orbs: 3, radius: 0.9, wheelNotch: 100 };
 
 export class Game {
   constructor({ engine, input, hud, targets }) {
@@ -29,10 +34,14 @@ export class Game {
     this.currentOpts = {};
     this._pendingStart = null;
     this._pendingResume = false;
+    this._pendingDemo = false;
+    this._demoPrev = null; // {sensMode, cm360} snapshot for demo cancel
+    this._wheelAcc = 0;
 
     this.targets.onKill = (t, scored) => this._onKill(t, scored);
 
     input.onFireDown = () => this._onFireDown();
+    input.onWheel = (dy) => this._onWheel(dy);
     input.onKey = (code, e) => this._onKey(code, e);
     input.onLockChange = (locked) => this._onLockChange(locked);
     input.onLockDenied = () => this._onLockDenied();
@@ -69,10 +78,17 @@ export class Game {
       } else if (this._pendingResume) {
         this._pendingResume = false;
         this._startCountdown(false);
+      } else if (this._pendingDemo) {
+        this._pendingDemo = false;
+        this._beginDemo();
       }
     } else {
       if (this.state === State.RUNNING || this.state === State.COUNTDOWN) {
         this._pause();
+      } else if (this.state === State.DEMO) {
+        // Esc under pointer lock never reaches keydown — the lock loss IS the
+        // demo's Esc. Stay in DEMO, show the keep/retry/discard step.
+        this._demoToConfirm();
       }
     }
   }
@@ -171,6 +187,14 @@ export class Game {
   quitToMenu() {
     this._pendingStart = null;
     this._pendingResume = false;
+    this._pendingDemo = false;
+    if (this._demoPrev) {
+      // Abandoned mid-demo (tests, stray paths): restore the pre-demo feel.
+      settings.data.sensMode = this._demoPrev.sensMode;
+      settings.data.cm360 = this._demoPrev.cm360;
+      this._demoPrev = null;
+      settings.save();
+    }
     if (this.state === State.RUNNING || this.state === State.PAUSED || this.state === State.COUNTDOWN) {
       try {
         this.currentDef?.end?.(this.api);
@@ -180,11 +204,138 @@ export class Game {
     }
     this.targets.clear();
     this.engine.setBeam(false);
+    this.hud.setDemoMode(false);
     this.hud.hide();
     this.hud.clearMessage();
     this.input.exitLock();
     this.state = State.MENU;
     this.ui.showMenu();
+  }
+
+  // ---- sensitivity demo ------------------------------------------------------
+
+  /** Arm the first-run sensitivity tryout; the demo starts when the lock lands. */
+  startSensDemo() {
+    if (this.state === State.DEMO && this.input.locked) return;
+    this._pendingDemo = true;
+    this._pendingStart = null;
+    this._pendingResume = false;
+    if (this.input.locked) this._onLockChange(true);
+    else this.input.requestLock();
+  }
+
+  _beginDemo() {
+    // Snapshot once (survives "Try again") so Discard restores the true
+    // pre-demo feel; only these two fields are ever written by the demo.
+    this._demoPrev ??= { sensMode: settings.data.sensMode, cm360: settings.data.cm360 };
+    // Seed from the current feel — match mode yields the mouse-speed estimate
+    // (exactly 30 cm/360 when unmeasured), other modes their configured value.
+    const seed = Math.min(SENS_DEMO.cmMax, Math.max(SENS_DEMO.cmMin, Math.round(settings.cm360() || 30)));
+    settings.data.sensMode = 'cm360';
+    settings.data.cm360 = seed;
+    settings.persist();
+
+    this.state = State.DEMO;
+    this._wheelAcc = 0;
+    this.targets.clear();
+    this.targets.nextRng = null; // static orbs — plain randomness is fine
+    this.engine.resetLook();
+    for (let i = 0; i < SENS_DEMO.orbs; i++) this._spawnDemoOrb();
+
+    this.ui.hideAll();
+    this.hud.show();
+    this.hud.clearMessage();
+    this.hud.setDemoMode(true);
+    this.hud.setDemoSens(seed, SENS_DEMO.cmMin, SENS_DEMO.cmMax);
+  }
+
+  _spawnDemoOrb() {
+    // Gridshot-style envelope: front wall, min spacing so flicks have travel.
+    let x = 0, y = 2;
+    for (let i = 0; i < 40; i++) {
+      x = -10 + Math.random() * 20;
+      y = 1.5 + Math.random() * 7;
+      const clear = this.targets.alive.every(
+        (t) => Math.hypot(t.pos.x - x, t.pos.y - y) > SENS_DEMO.radius * 2.6
+      );
+      if (clear) break;
+    }
+    this.targets.spawn({ pos: { x, y, z: ARENA.wallZ }, radius: SENS_DEMO.radius });
+  }
+
+  _updateDemo(dt) {
+    this.targets.update(dt); // hit-flash decay + particle animation
+    while (this.targets.alive.length < SENS_DEMO.orbs) this._spawnDemoOrb();
+  }
+
+  /** Demo firing skips ALL run bookkeeping (score/streak/stats stay untouched). */
+  _demoShoot() {
+    this.engine.kick();
+    audio.shoot();
+    const hit = this.targets.raycast(this.engine.aimRay());
+    if (hit && !hit.target.decoy) {
+      const killed = hit.target.damage(1);
+      if (killed) {
+        audio.kill();
+        this.hud.hitmarker(true);
+      }
+    }
+  }
+
+  _onWheel(dy) {
+    if (this.state !== State.DEMO || !this.input.locked) return;
+    this._wheelAcc += dy;
+    const steps = Math.trunc(this._wheelAcc / SENS_DEMO.wheelNotch);
+    if (!steps) return;
+    this._wheelAcc -= steps * SENS_DEMO.wheelNotch;
+    // Wheel up (negative deltaY) = faster = fewer cm per 360.
+    this._adjustDemoSens(steps);
+  }
+
+  _adjustDemoSens(steps) {
+    const cm = Math.min(SENS_DEMO.cmMax, Math.max(SENS_DEMO.cmMin, settings.data.cm360 + steps));
+    if (cm === settings.data.cm360) return;
+    settings.data.cm360 = cm;
+    settings.persist();
+    this.hud.setDemoSens(cm, SENS_DEMO.cmMin, SENS_DEMO.cmMax);
+  }
+
+  _demoToConfirm() {
+    this.hud.hide();
+    this.ui.showSensDemoConfirm(settings.data.cm360);
+  }
+
+  commitSensDemo() {
+    if (this.state !== State.DEMO) return;
+    settings.data.sensTuned = true;
+    settings.save();
+    const cm = settings.data.cm360;
+    this._demoPrev = null;
+    this._teardownDemo();
+    this.ui.sensDemoDone(true, cm);
+  }
+
+  cancelSensDemo() {
+    if (this.state !== State.DEMO && !this._demoPrev) return;
+    if (this._demoPrev) {
+      settings.data.sensMode = this._demoPrev.sensMode;
+      settings.data.cm360 = this._demoPrev.cm360;
+      this._demoPrev = null;
+    }
+    settings.save();
+    this._teardownDemo();
+    this.ui.sensDemoDone(false);
+  }
+
+  _teardownDemo() {
+    this._pendingDemo = false;
+    this._wheelAcc = 0;
+    this.targets.clear();
+    this.hud.setDemoMode(false);
+    this.hud.hide();
+    // MENU before exitLock: the async pointerlockchange(false) must no-op.
+    this.state = State.MENU;
+    this.input.exitLock();
   }
 
   _finish() {
@@ -253,8 +404,11 @@ export class Game {
   // ---- per-frame -----------------------------------------------------------
 
   update(dt) {
-    // Aim is live during countdown and play.
-    if (this.input.locked && (this.state === State.RUNNING || this.state === State.COUNTDOWN)) {
+    // Aim is live during countdown, play, and the sensitivity demo.
+    if (
+      this.input.locked &&
+      (this.state === State.RUNNING || this.state === State.COUNTDOWN || this.state === State.DEMO)
+    ) {
       const { dx, dy } = this.input.consumeDeltas();
       if (dx || dy) this.engine.applyLook(dx, dy, settings.degPerCount());
     } else {
@@ -263,6 +417,7 @@ export class Game {
 
     if (this.state === State.COUNTDOWN) this._updateCountdown(dt);
     else if (this.state === State.RUNNING) this._updateRun(dt);
+    else if (this.state === State.DEMO) this._updateDemo(dt);
   }
 
   _updateCountdown(dt) {
@@ -378,6 +533,10 @@ export class Game {
   // ---- combat --------------------------------------------------------------
 
   _onFireDown() {
+    if (this.state === State.DEMO) {
+      this._demoShoot();
+      return;
+    }
     if (this.state !== State.RUNNING) return;
     if (this.weapon.mode === 'semi') {
       this._shoot();
@@ -452,6 +611,14 @@ export class Game {
   // ---- input ---------------------------------------------------------------
 
   _onKey(code) {
+    if (this.state === State.DEMO) {
+      // A focused button (confirm step) fires its own click — don't double-act.
+      if (code === 'Enter' && document.activeElement?.tagName !== 'BUTTON') this.commitSensDemo();
+      else if (code === 'Escape' && !this.input.locked) this.cancelSensDemo();
+      else if (this.input.locked && (code === 'ArrowUp' || code === 'ArrowRight')) this._adjustDemoSens(-1);
+      else if (this.input.locked && (code === 'ArrowDown' || code === 'ArrowLeft')) this._adjustDemoSens(1);
+      return; // swallow R/S/Q while in the demo
+    }
     if (code === 'KeyR') {
       // In-run restart works while playing; on the pause/results screens only while
       // that screen is actually up (not when the settings sub-screen is open over it).
@@ -478,12 +645,12 @@ export class Game {
   }
 
   _onLockDenied() {
-    if (!this._pendingStart && !this._pendingResume) return;
+    if (!this._pendingStart && !this._pendingResume && !this._pendingDemo) return;
     this.ui?.lockHint?.();
     // One deferred retry — still inside the click's transient-activation window.
     clearTimeout(this._relockTimer);
     this._relockTimer = setTimeout(() => {
-      if (this._pendingStart || this._pendingResume) this.input.requestLock();
+      if (this._pendingStart || this._pendingResume || this._pendingDemo) this.input.requestLock();
     }, 1300);
   }
 

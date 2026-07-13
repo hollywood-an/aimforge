@@ -619,6 +619,8 @@ export class UI {
   showSettings(from = 'menu') {
     this._settingsFrom = from;
     this._refreshSensInfo?.(); // freshen the measured-sensitivity readout on open
+    // The tune demo can't run over a paused run (it clears the arena).
+    this._tuneRow?.classList.toggle('hidden', from === 'pause');
     this._show('screen-settings');
   }
 
@@ -626,6 +628,38 @@ export class UI {
    *  otherwise the main menu. Keeps the run paused (not quit) when returning to pause. */
   _settingsBack() {
     if (this._settingsFrom === 'pause') this.showPause();
+    else this.showMenu();
+  }
+
+  // ---- sensitivity demo -------------------------------------------------------
+
+  showSensDemo(from = 'menu') {
+    this._sensDemoFrom = from;
+    el('sensdemo-intro').classList.remove('hidden');
+    el('sensdemo-confirm').classList.add('hidden');
+    this._show('screen-sensdemo');
+  }
+
+  /** Post-Esc step while the game is still in the demo state. */
+  showSensDemoConfirm(cm) {
+    el('sensdemo-cm').textContent = cm;
+    el('sensdemo-intro').classList.add('hidden');
+    el('sensdemo-confirm').classList.remove('hidden');
+    this._show('screen-sensdemo');
+  }
+
+  /** Demo ended (committed or discarded) — settle UI and route back. */
+  sensDemoDone(committed, cm) {
+    // Settings controls capture values at build time; rebuild so the panel
+    // reflects the demo's outcome (same pattern as the reset button).
+    el('settings-body').innerHTML = '';
+    this._buildSettings();
+    if (committed) this._toast(`Sensitivity saved — ${cm} cm/360. Change it anytime in Settings.`, 2600);
+    this._sensDemoBack();
+  }
+
+  _sensDemoBack() {
+    if (this._sensDemoFrom === 'settings') this.showSettings('menu');
     else this.showMenu();
   }
 
@@ -1093,6 +1127,19 @@ export class UI {
       }
     };
     dynamic.push(this._refreshSensInfo);
+    const tuneBtn = mk('button', 'btn ghost small', 'Tune sensitivity');
+    tuneBtn.type = 'button';
+    tuneBtn.addEventListener('click', (e) => {
+      if (e.detail > 0) e.currentTarget.blur();
+      audio.ui();
+      // Launching the demo would clear a paused run's targets — menu only.
+      if (this.game.state !== 'menu') {
+        this._toast('Finish or quit the current run first');
+        return;
+      }
+      this.showSensDemo('settings');
+    });
+    this._tuneRow = row('Find your feel', tuneBtn);
     row('Invert Y axis', check('invertY'));
 
     // Video
@@ -1301,6 +1348,16 @@ export class UI {
     click('res-menu', () => this.requestQuit());
 
     click('settings-back', () => this._settingsBack());
+
+    click('sensdemo-try', () => this.game.startSensDemo());
+    click('sensdemo-skip', () => {
+      settings.data.sensTuned = true;
+      settings.save();
+      this._sensDemoBack();
+    });
+    click('sensdemo-save', () => this.game.commitSensDemo());
+    click('sensdemo-retry', () => this.game.startSensDemo());
+    click('sensdemo-cancel', () => this.game.cancelSensDemo());
     click('stats-back', () => this.showMenu());
     click('stats-empty-play', () => this.showBrief(byId.gridshot));
 

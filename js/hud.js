@@ -40,8 +40,23 @@ export class Hud {
     this.elFps = document.getElementById('hud-fps');
     this.elMsg = document.getElementById('hud-message');
     this.elBench = document.getElementById('hud-bench');
+    this.elDemo = document.getElementById('demo-hud');
+    this.elDemoFill = document.getElementById('demo-fill');
+    this.elDemoCm = document.getElementById('demo-cm');
     this._msgTimer = null;
     this.applyCrosshair();
+  }
+
+  /** Sensitivity-demo mode: run readouts hidden (CSS), demo overlay shown. */
+  setDemoMode(on) {
+    this.root.classList.toggle('demo', on);
+    this.elDemo.classList.toggle('hidden', !on);
+  }
+
+  setDemoSens(cm, min, max) {
+    // Full bar = fastest (fewest cm per 360) — matches the slower→faster axis.
+    this.elDemoFill.style.width = `${Math.round(((max - cm) / (max - min)) * 100)}%`;
+    this.elDemoCm.textContent = `${cm} cm/360`;
   }
 
   applyCrosshair() {
