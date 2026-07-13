@@ -97,11 +97,20 @@ class Settings {
 
   flush() {
     clearTimeout(this._saveT);
+    if (this._stopped) return;
     try {
       localStorage.setItem(KEY, JSON.stringify(this.data));
     } catch {
       /* private mode / quota — settings just won't persist */
     }
+  }
+
+  /** Permanently stop writes (incl. the beforeunload flush). Called right
+   *  before a backup-import reload so in-memory settings can't clobber the
+   *  freshly imported ones. */
+  stopPersist() {
+    clearTimeout(this._saveT);
+    this._stopped = true;
   }
 
   /** Debounced persistence WITHOUT notifying subscribers — for high-frequency background

@@ -7,7 +7,10 @@ import { icon, hydrateIcons } from './icons.js';
 import { SCENARIOS, CATEGORIES, byId } from './scenarios/index.js';
 import { CUSTOM_DEFAULTS } from './scenarios/custom.js';
 import { BENCH_STAGES, RANKS, tierFor, tierIndex, computeBench } from './benchmark.js';
-import { getPB, getRuns, totals, saveBench, getBestBench, clearAllData, normScore } from './stats.js';
+import {
+  getPB, getRuns, totals, saveBench, getBestBench, clearAllData, normScore,
+  exportData, validateBackup, importData,
+} from './stats.js';
 import { seedToString } from './rng.js';
 
 const CUSTOM_KEY = 'af_custom_v1';
@@ -1138,8 +1141,69 @@ export class UI {
     row('Volume', range('volume', { min: 0, max: 1, step: 0.05 }, (v) => `${Math.round(v * 100)}%`));
     row('Hit sounds', check('hitSound'));
 
-    // Data — both destructive actions confirm in-panel and toast the result.
+    // Data — backup/restore first, then the destructive actions. Import and
+    // both destructive buttons confirm in-panel and toast the result.
     section('Data');
+    const exportBtn = mk('button', 'btn ghost', 'Export backup');
+    exportBtn.addEventListener('click', (e) => {
+      if (e.detail > 0) e.currentTarget.blur();
+      audio.ui();
+      const blob = new Blob([JSON.stringify(exportData(), null, 2)], { type: 'application/json' });
+      const a = mk('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `aimforge-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      this._toast('Backup downloaded');
+    });
+    const importBtn = mk('button', 'btn ghost', 'Import backup');
+    const fileInput = mk('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'application/json,.json';
+    fileInput.style.display = 'none';
+    fileInput.setAttribute('aria-hidden', 'true');
+    fileInput.tabIndex = -1;
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      fileInput.value = '';
+      if (!file) return;
+      let payload, counts;
+      try {
+        payload = JSON.parse(await file.text());
+        counts = validateBackup(payload);
+      } catch (err) {
+        this._toast(err instanceof SyntaxError ? 'Not a valid JSON file' : err.message, 3200);
+        return;
+      }
+      // Arm the two-step confirm; the pending action runs on the second click.
+      importBtn._pendingImport = () => {
+        try {
+          importData(payload);
+        } catch (err) {
+          this._toast(err.message, 3200);
+          return;
+        }
+        settings.stopPersist();
+        this._toast(`Restored ${counts.runs} runs — reloading…`);
+        setTimeout(() => location.reload(), 500);
+      };
+      this._armConfirm(importBtn, `Click again to replace all data (${counts.runs} runs)`, importBtn._pendingImport);
+    });
+    importBtn.addEventListener('click', (e) => {
+      if (e.detail > 0) e.currentTarget.blur();
+      audio.ui();
+      if (importBtn._armed && importBtn._pendingImport) {
+        const apply = importBtn._pendingImport;
+        importBtn._pendingImport = null;
+        this._armConfirm(importBtn, '', apply); // armed → executes now
+        return;
+      }
+      fileInput.click();
+    });
+    const backupRow = mk('div', 'row buttons');
+    backupRow.append(exportBtn, importBtn, fileInput);
+    root.append(backupRow);
+
     const resetBtn = mk('button', 'btn ghost', 'Reset settings');
     resetBtn.addEventListener('click', (e) => {
       if (e.detail > 0) e.currentTarget.blur();

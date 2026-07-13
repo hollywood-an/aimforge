@@ -203,12 +203,41 @@ out.challengeRun.ok = out.challengeRun.seed === 42 && out.challengeRun.beatScore
 await page.evaluate(() => AF.game.quitToMenu());
 await sleep(200);
 
+// 10. Backup export/import: byte-identical round-trip across all 5 keys
+//     (af_last_v1 is a bare string, not JSON); malformed payloads throw
+//     without touching storage.
+out.backup = await page.evaluate(async () => {
+  const m = await import('/js/stats.js');
+  const KEYS = ['af_settings_v1', 'af_runs_v1', 'af_bench_v1', 'af_custom_v1', 'af_last_v1'];
+  localStorage.setItem('af_settings_v1', JSON.stringify({ fov: 100, sensMode: 'match' }));
+  localStorage.setItem('af_runs_v1', JSON.stringify({ gridshot: [{ scenarioId: 'gridshot', score: 4200, timeScale: 1 }] }));
+  localStorage.setItem('af_bench_v1', JSON.stringify([{ points: 4, rank: 'Gold' }]));
+  localStorage.setItem('af_custom_v1', JSON.stringify({ count: 4 }));
+  localStorage.setItem('af_last_v1', 'gridshot');
+  const before = JSON.stringify(KEYS.map((k) => localStorage.getItem(k)));
+  const payload = m.exportData();
+  KEYS.forEach((k) => localStorage.removeItem(k));
+  localStorage.setItem('af_runs_v1', JSON.stringify({ junk: [] }));
+  const counts = m.importData(JSON.parse(JSON.stringify(payload)));
+  const after = JSON.stringify(KEYS.map((k) => localStorage.getItem(k)));
+  const roundTrip = before === after;
+  const rejects = [];
+  const tryBad = (p) => { try { m.importData(p); rejects.push(false); } catch { rejects.push(true); } };
+  tryBad(null);
+  tryBad({ version: 2, data: { af_last_v1: 'x' } });
+  tryBad({ version: 1, data: {} });
+  tryBad({ version: 1, data: { af_runs_v1: [1, 2, 3] } });
+  tryBad({ version: 1, data: { af_bench_v1: {} } });
+  const untouched = JSON.stringify(KEYS.map((k) => localStorage.getItem(k))) === after;
+  return { roundTrip, rejects, untouched, counts, ok: roundTrip && rejects.every(Boolean) && untouched && counts.runs === 1 };
+});
+
 out.pageErrors = pageErrors;
 console.log(JSON.stringify(out, null, 2));
 const ok = out.benchRetryBlocked && out.rpmCap.ok && out.pbNorm.ok && out.pendingCleared
   && out.customClamp.ok && out.benchDoneState && out.sensClamp.ok
   && out.seedPrimitives.ok && out.seedRuns.ok
-  && out.challengeBoot.ok && out.challengeRun.ok && pageErrors.length === 0;
+  && out.challengeBoot.ok && out.challengeRun.ok && out.backup.ok && pageErrors.length === 0;
 if (!ok) await failShot(page, 'regression');
 await browser.close();
 process.exit(ok ? 0 : 1);
