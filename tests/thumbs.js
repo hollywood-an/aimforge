@@ -40,8 +40,8 @@ const page = await browser.newPage();
 await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e).slice(0, 160)));
-await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
-await page.waitForFunction(() => window.AF && window.AF.game && window.AF.SCENARIOS);
+await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });
+await page.waitForFunction(() => window.AF && window.AF.game && window.AF.SCENARIOS, { timeout: 60000 });
 await sleep(400);
 
 const only = process.argv[2] ? process.argv[2].split(',') : null;

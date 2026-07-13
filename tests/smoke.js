@@ -11,8 +11,10 @@ page.on('console', (m) => {
   if (m.type() === 'error') errors.push('CONSOLE: ' + m.text().slice(0, 300));
 });
 
-await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
-await page.waitForFunction(() => window.AF && window.AF.game && window.AF.ui && window.AF.SCENARIOS?.length);
+// 'load' + the AF waitForFunction below is the real readiness signal;
+// networkidle0 flakes on CI runners.
+await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });
+await page.waitForFunction(() => window.AF && window.AF.game && window.AF.ui && window.AF.SCENARIOS?.length, { timeout: 60000 });
 await sleep(500);
 
 const ui = await page.evaluate(() => ({

@@ -8,8 +8,8 @@ await page.setViewport({ width: 1600, height: 900 });
 const pageErrors = [];
 page.on('pageerror', (e) => pageErrors.push(String(e).slice(0, 200)));
 
-await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
-await page.waitForFunction(() => window.AF && window.AF.game && window.AF.ui);
+await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });
+await page.waitForFunction(() => window.AF && window.AF.game && window.AF.ui, { timeout: 60000 });
 await sleep(400);
 const out = {};
 

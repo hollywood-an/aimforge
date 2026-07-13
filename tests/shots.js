@@ -42,7 +42,7 @@ await page.evaluateOnNewDocument(() => {
   }]));
 });
 
-await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
+await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });
 await page.waitForSelector('#menu-cards .card', { timeout: 15000 });
 await page.waitForFunction(() => window.AF && window.AF.game && window.AF.ui);
 await sleep(600);
