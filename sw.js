@@ -4,7 +4,7 @@
 // VERSION bump makes installed clients refetch changed file contents.
 // The list between the <precache> markers is strict JSON (double quotes, no
 // trailing comma on the last entry) so the check script can parse it.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `aimforge-${VERSION}`;
 const PRECACHE = [
   // <precache>

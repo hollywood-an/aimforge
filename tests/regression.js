@@ -252,9 +252,10 @@ out.sensDemo = await page.evaluate(() => {
   AF.game._demoShoot();
   const killedNoScore = AF.targets.alive.length === n0 - 1 && AF.game.score === 0;
   AF.game.input.locked = true; // _onWheel gates on locked
-  AF.game._onWheel(200);  const plus2 = S.data.cm360 === 32;    // 2 notches slower
-  AF.game._onWheel(-1e5); const clampLo = S.data.cm360 === 10;  // fast-end clamp
-  AF.game._onWheel(1e5);  const clampHi = S.data.cm360 === 60;  // slow-end clamp
+  // Positive deltaY = faster (macOS natural-scroll up); steps scale ceil(cm/20).
+  AF.game._onWheel(200);  const faster2 = S.data.cm360 === 26;    // 30→28→26
+  AF.game._onWheel(-1e5); const clampSlow = S.data.cm360 === 150; // slow-end clamp
+  AF.game._onWheel(1e5);  const clampFast = S.data.cm360 === 5;   // fast-end clamp
   AF.game.input.locked = false;
   AF.game._onLockChange(false); // Esc-equivalent → confirm step
   const confirm = AF.game.state === 'demo'
@@ -263,8 +264,8 @@ out.sensDemo = await page.evaluate(() => {
   const restored = S.data.sensMode === 'match' && S.data.cm360 === 32
     && AF.game.state === 'menu'
     && !document.getElementById('screen-menu').classList.contains('hidden');
-  return { introVisible, started, seeded, orbs, killedNoScore, plus2, clampLo, clampHi, confirm, restored,
-    ok: introVisible && started && seeded && orbs && killedNoScore && plus2 && clampLo && clampHi && confirm && restored };
+  return { introVisible, started, seeded, orbs, killedNoScore, faster2, clampSlow, clampFast, confirm, restored,
+    ok: introVisible && started && seeded && orbs && killedNoScore && faster2 && clampSlow && clampFast && confirm && restored };
 });
 
 out.sensDemoCommit = await page.evaluate(() => {
@@ -274,13 +275,13 @@ out.sensDemoCommit = await page.evaluate(() => {
   AF.game.startSensDemo();
   AF.game._onLockChange(true);
   AF.game.input.locked = true;
-  AF.game._onWheel(400); // 30 → 34
+  AF.game._onWheel(400); // 4 notches faster: 30→28→26→24→22
   AF.game.input.locked = false;
   AF.game.commitSensDemo();
   S.flush(); // commit uses the debounced save()
   const stored = JSON.parse(localStorage.getItem('af_settings_v1'));
-  return { ok: S.data.sensMode === 'cm360' && S.data.cm360 === 34 && S.data.sensTuned === true
-    && stored.sensMode === 'cm360' && stored.cm360 === 34 && stored.sensTuned === true
+  return { ok: S.data.sensMode === 'cm360' && S.data.cm360 === 22 && S.data.sensTuned === true
+    && stored.sensMode === 'cm360' && stored.cm360 === 22 && stored.sensTuned === true
     && AF.game.state === 'menu' };
 });
 

@@ -54,8 +54,10 @@ export class Hud {
   }
 
   setDemoSens(cm, min, max) {
-    // Full bar = fastest (fewest cm per 360) — matches the slower→faster axis.
-    this.elDemoFill.style.width = `${Math.round(((max - cm) / (max - min)) * 100)}%`;
+    // Full bar = fastest (fewest cm per 360). Log scale: the wide slow tail
+    // (60-150cm) must not squash the useful fast half into a sliver.
+    const frac = (Math.log(max) - Math.log(cm)) / (Math.log(max) - Math.log(min));
+    this.elDemoFill.style.width = `${Math.round(frac * 100)}%`;
     this.elDemoCm.textContent = `${cm} cm/360`;
   }
 

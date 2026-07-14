@@ -17,9 +17,10 @@ export const State = {
   DEMO: 'demo', // first-run sensitivity tryout: aim + shoot, no run bookkeeping
 };
 
-// Sensitivity demo tuning: cm/360 range the wheel walks, orb count/size, and
-// how many wheel-pixels equal one notch (one whole cm step).
-const SENS_DEMO = { cmMin: 10, cmMax: 60, orbs: 3, radius: 0.9, wheelNotch: 100 };
+// Sensitivity demo tuning: cm/360 range the wheel walks (full settings range),
+// orb count/size, and how many wheel-pixels equal one notch. Notch size scales
+// with the current value (ceil(cm/20)) so the wide range stays quick to cross.
+const SENS_DEMO = { cmMin: 5, cmMax: 150, orbs: 3, radius: 0.9, wheelNotch: 100 };
 
 export class Game {
   constructor({ engine, input, hud, targets }) {
@@ -288,12 +289,21 @@ export class Game {
     const steps = Math.trunc(this._wheelAcc / SENS_DEMO.wheelNotch);
     if (!steps) return;
     this._wheelAcc -= steps * SENS_DEMO.wheelNotch;
-    // Wheel up (negative deltaY) = faster = fewer cm per 360.
-    this._adjustDemoSens(steps);
+    // Positive deltaY = faster: on macOS natural scrolling (the common case
+    // here) that makes the physical scroll-up gesture speed you up.
+    this._adjustDemoSens(-steps);
   }
 
-  _adjustDemoSens(steps) {
-    const cm = Math.min(SENS_DEMO.cmMax, Math.max(SENS_DEMO.cmMin, settings.data.cm360 + steps));
+  /** Walk cm/360 by `notches` (+ = slower, - = faster). Step size scales with
+   *  the current value so 5→150 takes ~notches, not 145 wheel clicks. */
+  _adjustDemoSens(notches) {
+    let cm = settings.data.cm360;
+    const dir = Math.sign(notches);
+    for (let i = 0; i < Math.abs(notches); i++) {
+      const next = cm + dir * Math.ceil(cm / 20);
+      cm = Math.min(SENS_DEMO.cmMax, Math.max(SENS_DEMO.cmMin, next));
+      if (cm === SENS_DEMO.cmMin || cm === SENS_DEMO.cmMax) break;
+    }
     if (cm === settings.data.cm360) return;
     settings.data.cm360 = cm;
     settings.persist();
